@@ -6,13 +6,17 @@
 <title>Park View Attendance</title>
 <style>
   body { font-family: Arial, sans-serif; margin: 0; padding: 24px 16px; text-align: center; background: #fafafa; color: #222; }
-  h1 { font-size: 20px; color: #555; margin: 0 0 24px; }
-  .big { font-size: 84px; line-height: 1; margin: 16px 0; }
+  h1 { font-size: 20px; color: #555; margin: 0 0 20px; }
+  .big { font-size: 84px; line-height: 1; margin: 12px 0; }
   .msg { font-size: 22px; margin: 12px 0; }
   .sub { font-size: 16px; color: #666; }
   .ok { color: #188038; } .bad { color: #c5221f; }
   input { font-size: 32px; width: 200px; text-align: center; letter-spacing: 6px; padding: 8px; border: 2px solid #999; border-radius: 8px; }
-  button { font-size: 20px; padding: 12px 28px; margin-top: 16px; border: 0; border-radius: 8px; background: #1a73e8; color: #fff; }
+  button { font-size: 20px; padding: 14px 28px; margin-top: 14px; border: 0; border-radius: 8px; background: #1a73e8; color: #fff; }
+  button.green { background: #188038; } button.grey { background: #777; }
+  ol { text-align: left; font-size: 18px; line-height: 1.5; max-width: 420px; margin: 8px auto; padding-left: 26px; }
+  .box { background: #fff; border: 1px solid #ddd; border-radius: 10px; padding: 12px; margin: 14px auto; max-width: 460px; }
+  b.k { background: #e8f0fe; padding: 1px 6px; border-radius: 4px; }
   .hide { display: none; }
 </style>
 </head>
@@ -27,6 +31,30 @@
   <button onclick="doSetup()">Set up</button>
   <div class="msg bad" id="setupErr"></div>
 </div>
+<div id="ask" class="hide">
+  <div class="big">📍</div>
+  <div class="msg">Your phone will ask to use your location.</div>
+  <ol>
+    <li>Choose <b class="k">Precise</b></li>
+    <li>Tap <b class="k">While using the app</b> (or <b class="k">Allow</b>)</li>
+  </ol>
+  <div class="sub">Do not tap "Don't allow". Location is only checked now, never tracked.</div>
+  <button class="green" onclick="getPos()">OK, continue</button>
+</div>
+<div id="help" class="hide">
+  <div class="big">📍</div>
+  <div class="msg bad" id="helpTitle"></div>
+  <div class="box">
+    <div class="msg">Can't fix it now?</div>
+    <button class="green" onclick="askReception()">Tell reception I am here</button>
+    <div class="sub">Reception will mark you present.</div>
+  </div>
+  <div class="box">
+    <div class="msg">Fix it once (1 minute)</div>
+    <ol id="steps"></ol>
+    <button class="grey" onclick="getPos()">I fixed it, try again</button>
+  </div>
+</div>
 <script>
 var API = 'https://script.google.com/macros/s/AKfycbx9iljOgyaOLm3TC9Ibe545IgnOJErAWm4MchT8iJMXn5W36yQPWT-5VWvMLjBpJpRzNA/exec';
 var T = new URLSearchParams(location.search).get('t') || '';
@@ -35,11 +63,28 @@ function call(body, ok) {
   fetch(API, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain;charset=utf-8' } })
     .then(function (r) { return r.json(); }).then(ok).catch(failed);
 }
-var KEY_NAME = 'parkview-attendance-key';
+var KEY_NAME = 'parkview-attendance-key', WHY = '';
+var STEPS = {
+  blocked: [
+    'If Chrome shows a message with <b class="k">Settings</b>, tap it. (Or: phone Settings → Apps → Chrome.)',
+    'Tap <b class="k">Permissions</b> → <b class="k">Location</b>.',
+    'Choose <b class="k">Allow only while using the app</b> and turn ON <b class="k">Use precise location</b>.',
+    'Back in Chrome: tap the icon left of the web address → <b class="k">Permissions</b> → <b class="k">Location</b> → <b class="k">Allow</b>.',
+    'Scan the QR again.'],
+  precise: [
+    'Phone Settings → Apps → Chrome → <b class="k">Permissions</b> → <b class="k">Location</b>.',
+    'Turn ON <b class="k">Use precise location</b>.',
+    'Scan the QR again.'],
+  off: [
+    'Pull down from the top of the screen and tap <b class="k">Location</b> to turn it on.',
+    'Stand near the reception door.',
+    'Scan the QR again.']
+};
+var TITLES = { blocked: 'Location is blocked on this phone', precise: 'Location is not exact', off: 'Could not find your location' };
 function el(id) { return document.getElementById(id); }
 function getKey() { try { return localStorage.getItem(KEY_NAME); } catch (e) { return null; } }
 function setKey(k) { try { if (k) localStorage.setItem(KEY_NAME, k); else localStorage.removeItem(KEY_NAME); } catch (e) {} }
-function show(id) { ['busy', 'result', 'setup'].forEach(function (x) { el(x).className = x === id ? '' : 'hide'; }); }
+function show(id) { ['busy', 'result', 'setup', 'ask', 'help'].forEach(function (x) { el(x).className = x === id ? '' : 'hide'; }); }
 function busy(t) { el('busyText').textContent = t; show('busy'); }
 function result(ok, text, sub) {
   el('icon').textContent = ok ? '✅' : '❌';
@@ -47,18 +92,33 @@ function result(ok, text, sub) {
   el('sub').textContent = sub || ''; show('result');
 }
 function failed(err) { result(false, 'No internet or a problem. Scan the QR again.', String(err && err.message || err || '')); }
+function help(kind) {
+  WHY = kind;
+  el('helpTitle').textContent = TITLES[kind];
+  el('steps').innerHTML = STEPS[kind].map(function (s) { return '<li>' + s + '</li>'; }).join('');
+  show('help');
+}
 
 function start() {
   if (!T) { result(false, 'Scan the QR code on the reception screen.', ''); return; }
   if (!getKey()) { show('setup'); return; }
+  if (!navigator.geolocation) { help('blocked'); return; }
+  // Ask the browser what it will do, so first-timers get the simple explanation before the phone's popup.
+  if (navigator.permissions && navigator.permissions.query) {
+    navigator.permissions.query({ name: 'geolocation' }).then(function (p) {
+      if (p.state === 'granted') getPos();
+      else if (p.state === 'denied') help('blocked');
+      else show('ask');
+    }).catch(function () { show('ask'); });
+  } else show('ask');
+}
+
+function getPos() {
   busy('Finding your location…');
-  if (!navigator.geolocation) { result(false, 'This browser has no location. Use Chrome.', ''); return; }
   navigator.geolocation.getCurrentPosition(function (p) {
     send({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy });
   }, function (e) {
-    if (e.code === 1) result(false, 'Location is blocked for this page.',
-      'Turn on Location. In Chrome tap the icon left of the address, then Permissions → Location → Allow. Then scan again.');
-    else result(false, 'Could not find your location.', 'Turn on Location, stand near reception, then scan again.');
+    help(e.code === 1 ? 'blocked' : 'off');
   }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
 }
 
@@ -66,10 +126,22 @@ function send(loc) {
   busy('Marking…');
   call({ action: 'scan', t: T, k: getKey(), lat: loc.lat, lng: loc.lng, acc: loc.acc }, function (r) {
     if (r.setup) { if (r.reset) setKey(null); show('setup'); return; }
+    if (!r.ok && r.reason === 'not-precise') { help('precise'); return; }
+    if (!r.ok && r.reason === 'no-location') { help('off'); return; }
     if (!r.ok) { result(false, r.msg, r.name ? r.name : ''); return; }
     var word = r.status === 'H' ? 'Half day' : 'Present';
     if (r.already) result(true, 'Already marked today', r.name + ' · ' + r.date + ' · ' + r.time);
     else result(true, word + ' ✓', r.name + ' · ' + r.date + ' · ' + r.time);
+  });
+}
+
+function askReception() {
+  busy('Telling reception…');
+  call({ action: 'help', t: T, k: getKey(), why: WHY }, function (r) {
+    if (r.setup) { show('setup'); return; }
+    if (!r.ok) { result(false, r.msg, ''); return; }
+    if (r.already) { result(true, 'Already marked today', r.name + ' · ' + r.date + ' · ' + r.time); return; }
+    result(true, 'Reception will confirm you', r.name + ' · ' + r.date + ' · ' + r.time + '. Show this screen at reception.');
   });
 }
 
@@ -79,7 +151,7 @@ function doSetup() {
   call({ action: 'setup', code: el('code').value, t: T }, function (r) {
     if (!r.ok) { show('setup'); el('setupErr').textContent = r.msg; return; }
     setKey(r.key);
-    busy('Phone set up for ' + r.name + ' ✓  Marking you now…');
+    busy('Phone set up for ' + r.name + ' ✓');
     start();
   });
 }
