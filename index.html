@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Park View Attendance</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 0; padding: 24px 16px; text-align: center; background: #fafafa; color: #222; }
+  h1 { font-size: 20px; color: #555; margin: 0 0 24px; }
+  .big { font-size: 84px; line-height: 1; margin: 16px 0; }
+  .msg { font-size: 22px; margin: 12px 0; }
+  .sub { font-size: 16px; color: #666; }
+  .ok { color: #188038; } .bad { color: #c5221f; }
+  input { font-size: 32px; width: 200px; text-align: center; letter-spacing: 6px; padding: 8px; border: 2px solid #999; border-radius: 8px; }
+  button { font-size: 20px; padding: 12px 28px; margin-top: 16px; border: 0; border-radius: 8px; background: #1a73e8; color: #fff; }
+  .hide { display: none; }
+</style>
+</head>
+<body>
+<h1>Park View Attendance</h1>
+<div id="busy"><div class="big">⏳</div><div class="msg" id="busyText">Checking…</div></div>
+<div id="result" class="hide"><div class="big" id="icon"></div><div class="msg" id="text"></div><div class="sub" id="sub"></div></div>
+<div id="setup" class="hide">
+  <div class="msg">Set up this phone</div>
+  <div class="sub">Ask reception for your 6-digit code.</div><br>
+  <input id="code" inputmode="numeric" maxlength="6" autocomplete="off"><br>
+  <button onclick="doSetup()">Set up</button>
+  <div class="msg bad" id="setupErr"></div>
+</div>
+<script>
+var API = 'https://script.google.com/macros/s/AKfycbx9iljOgyaOLm3TC9Ibe545IgnOJErAWm4MchT8iJMXn5W36yQPWT-5VWvMLjBpJpRzNA/exec';
+var T = new URLSearchParams(location.search).get('t') || '';
+// Plain POST, no Google login or cookies: text/plain avoids a CORS preflight; Apps Script answers with CORS open.
+function call(body, ok) {
+  fetch(API, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain;charset=utf-8' } })
+    .then(function (r) { return r.json(); }).then(ok).catch(failed);
+}
+var KEY_NAME = 'parkview-attendance-key';
+function el(id) { return document.getElementById(id); }
+function getKey() { try { return localStorage.getItem(KEY_NAME); } catch (e) { return null; } }
+function setKey(k) { try { if (k) localStorage.setItem(KEY_NAME, k); else localStorage.removeItem(KEY_NAME); } catch (e) {} }
+function show(id) { ['busy', 'result', 'setup'].forEach(function (x) { el(x).className = x === id ? '' : 'hide'; }); }
+function busy(t) { el('busyText').textContent = t; show('busy'); }
+function result(ok, text, sub) {
+  el('icon').textContent = ok ? '✅' : '❌';
+  el('text').textContent = text; el('text').className = 'msg ' + (ok ? 'ok' : 'bad');
+  el('sub').textContent = sub || ''; show('result');
+}
+function failed(err) { result(false, 'No internet or a problem. Scan the QR again.', String(err && err.message || err || '')); }
+
+function start() {
+  if (!T) { result(false, 'Scan the QR code on the reception screen.', ''); return; }
+  if (!getKey()) { show('setup'); return; }
+  busy('Finding your location…');
+  if (!navigator.geolocation) { result(false, 'This browser has no location. Use Chrome.', ''); return; }
+  navigator.geolocation.getCurrentPosition(function (p) {
+    send({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy });
+  }, function (e) {
+    if (e.code === 1) result(false, 'Location is blocked for this page.',
+      'Turn on Location. In Chrome tap the icon left of the address, then Permissions → Location → Allow. Then scan again.');
+    else result(false, 'Could not find your location.', 'Turn on Location, stand near reception, then scan again.');
+  }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+}
+
+function send(loc) {
+  busy('Marking…');
+  call({ action: 'scan', t: T, k: getKey(), lat: loc.lat, lng: loc.lng, acc: loc.acc }, function (r) {
+    if (r.setup) { if (r.reset) setKey(null); show('setup'); return; }
+    if (!r.ok) { result(false, r.msg, r.name ? r.name : ''); return; }
+    var word = r.status === 'H' ? 'Half day' : 'Present';
+    if (r.already) result(true, 'Already marked today', r.name + ' · ' + r.date + ' · ' + r.time);
+    else result(true, word + ' ✓', r.name + ' · ' + r.date + ' · ' + r.time);
+  });
+}
+
+function doSetup() {
+  el('setupErr').textContent = '';
+  busy('Setting up…');
+  call({ action: 'setup', code: el('code').value, t: T }, function (r) {
+    if (!r.ok) { show('setup'); el('setupErr').textContent = r.msg; return; }
+    setKey(r.key);
+    busy('Phone set up for ' + r.name + ' ✓  Marking you now…');
+    start();
+  });
+}
+start();
+</script>
+</body>
+</html>
