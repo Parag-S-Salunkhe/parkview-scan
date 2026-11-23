@@ -5,156 +5,234 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Park View Attendance</title>
 <style>
-  body { font-family: Arial, sans-serif; margin: 0; padding: 24px 16px; text-align: center; background: #fafafa; color: #222; }
-  h1 { font-size: 20px; color: #555; margin: 0 0 20px; }
-  .big { font-size: 84px; line-height: 1; margin: 12px 0; }
-  .msg { font-size: 22px; margin: 12px 0; }
-  .sub { font-size: 16px; color: #666; }
-  .ok { color: #188038; } .bad { color: #c5221f; }
-  input { font-size: 32px; width: 200px; text-align: center; letter-spacing: 6px; padding: 8px; border: 2px solid #999; border-radius: 8px; }
-  button { font-size: 20px; padding: 14px 28px; margin-top: 14px; border: 0; border-radius: 8px; background: #1a73e8; color: #fff; }
-  button.green { background: #188038; } button.grey { background: #777; }
-  ol { text-align: left; font-size: 18px; line-height: 1.5; max-width: 420px; margin: 8px auto; padding-left: 26px; }
-  .box { background: #fff; border: 1px solid #ddd; border-radius: 10px; padding: 12px; margin: 14px auto; max-width: 460px; }
-  b.k { background: #e8f0fe; padding: 1px 6px; border-radius: 4px; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, "Noto Sans Devanagari", Arial, sans-serif; margin: 0; background: #f4f5f7; color: #1f2328; }
+  header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; }
+  header .brand { font-weight: 600; color: #57606a; font-size: 15px; }
+  .lang button { font-size: 15px; padding: 6px 12px; margin: 0 0 0 4px; border: 1px solid #d0d7de; border-radius: 16px; background: #fff; color: #57606a; }
+  .lang button.on { background: #1f2328; color: #fff; border-color: #1f2328; }
+  main { max-width: 440px; margin: 0 auto; padding: 8px 16px 32px; text-align: center; }
+  .icon { font-size: 72px; line-height: 1; margin: 28px 0 12px; }
+  h2 { font-size: 26px; margin: 0 0 8px; }
+  .sub { font-size: 17px; color: #57606a; margin: 6px 0; }
+  .ok { color: #1a7f37; } .bad { color: #cf222e; }
+  ol { text-align: left; font-size: 18px; line-height: 1.55; margin: 14px 0; padding-left: 24px; }
+  ol li { margin-bottom: 6px; }
+  b.k { background: #ddf4ff; padding: 1px 6px; border-radius: 4px; font-weight: 600; }
+  button.main { display: block; width: 100%; font-size: 20px; padding: 16px; margin-top: 18px; border: 0; border-radius: 12px; background: #1a7f37; color: #fff; }
+  button.plain { display: block; width: 100%; font-size: 17px; padding: 12px; margin-top: 12px; border: 1px solid #d0d7de; border-radius: 12px; background: #fff; color: #1f2328; }
+  details { margin-top: 22px; text-align: left; background: #fff; border: 1px solid #d0d7de; border-radius: 12px; padding: 12px 14px; }
+  summary { font-size: 17px; color: #0969da; cursor: pointer; }
+  input { font-size: 32px; width: 220px; text-align: center; letter-spacing: 8px; padding: 10px; margin-top: 18px; border: 2px solid #d0d7de; border-radius: 12px; }
   .hide { display: none; }
 </style>
 </head>
 <body>
-<h1>Park View Attendance</h1>
-<div id="busy"><div class="big">⏳</div><div class="msg" id="busyText">Checking…</div></div>
-<div id="result" class="hide"><div class="big" id="icon"></div><div class="msg" id="text"></div><div class="sub" id="sub"></div></div>
-<div id="setup" class="hide">
-  <div class="msg">Set up this phone</div>
-  <div class="sub">Ask reception for your 6-digit code.</div><br>
-  <input id="code" inputmode="numeric" maxlength="6" autocomplete="off"><br>
-  <button onclick="doSetup()">Set up</button>
-  <div class="msg bad" id="setupErr"></div>
-</div>
-<div id="ask" class="hide">
-  <div class="big">📍</div>
-  <div class="msg">Your phone will ask to use your location.</div>
-  <ol>
-    <li>Choose <b class="k">Precise</b></li>
-    <li>Tap <b class="k">While using the app</b> (or <b class="k">Allow</b>)</li>
-  </ol>
-  <div class="sub">Do not tap "Only this time" or "Don't allow". You are asked only once. Location is checked only when you scan, never tracked.</div>
-  <button class="green" onclick="getPos()">OK, continue</button>
-</div>
-<div id="help" class="hide">
-  <div class="big">📍</div>
-  <div class="msg bad" id="helpTitle"></div>
-  <div class="box">
-    <div class="msg">Can't fix it now?</div>
-    <button class="green" onclick="askReception()">Tell reception I am here</button>
-    <div class="sub">Reception will mark you present.</div>
-  </div>
-  <div class="box">
-    <div class="msg">Fix it once (1 minute)</div>
-    <ol id="steps"></ol>
-    <button class="grey" onclick="getPos()">I fixed it, try again</button>
-  </div>
-</div>
+<header>
+  <span class="brand">Park View</span>
+  <span class="lang"><button id="l-en" onclick="setLang('en')">English</button><button id="l-hi" onclick="setLang('hi')">हिंदी</button></span>
+</header>
+<main id="app"></main>
 <script>
 var API = 'https://script.google.com/macros/s/AKfycbx9iljOgyaOLm3TC9Ibe545IgnOJErAWm4MchT8iJMXn5W36yQPWT-5VWvMLjBpJpRzNA/exec';
 var T = new URLSearchParams(location.search).get('t') || '';
+var KEY_NAME = 'parkview-attendance-key', LANG_NAME = 'parkview-lang', WHY = '';
+var IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function k(s) { return '<b class="k">' + s + '</b>'; }   // phone's own button words stay in English, as the phone shows them
+
+var TXT = {
+  en: {
+    checking: 'Checking…', finding: 'Finding your location…', marking: 'Marking…', telling: 'Telling reception…', settingUp: 'Setting up…',
+    present: 'Present ✓', half: 'Half day ✓', already: 'Already marked today', told: 'Reception will mark you',
+    showScreen: 'Show this screen at reception.', setupDone: 'Phone set up ✓',
+    setupTitle: 'Set up this phone', setupSub: 'Ask reception for your 6-digit code.', setupBtn: 'Set up',
+    askTitle: 'Your phone will ask for your location',
+    askSteps: IOS ? ['Tap ' + k('Allow') + '.'] : ['Choose ' + k('Precise') + '.', 'Tap ' + k('While using the app') + '.'],
+    askNote: IOS ? 'Do not tap "Don\'t Allow".' : 'Do not tap "Only this time" or "Don\'t allow". You are asked only once.',
+    privacy: 'Location is checked only when you scan. It is never tracked.', ok: 'OK',
+    tellBtn: 'Tell reception I am here', tellSub: 'Reception will mark you present.',
+    fix: 'How to fix it (1 minute)', retry: 'I fixed it, try again',
+    title: { blocked: 'Location is blocked', precise: 'Location is not exact', off: 'Could not find your location' },
+    steps: IOS ? {
+      blocked: ['Open ' + k('Settings') + ' → ' + k('Privacy & Security') + ' → ' + k('Location Services') + ': turn it on.',
+        'In that list tap ' + k('Safari Websites') + ' → ' + k('While Using the App') + ', and turn on ' + k('Precise Location') + '.',
+        'In Safari tap ' + k('aA') + ' (left of the address) → ' + k('Website Settings') + ' → ' + k('Location') + ' → ' + k('Allow') + '.',
+        'Scan the QR again.'],
+      precise: [k('Settings') + ' → ' + k('Privacy & Security') + ' → ' + k('Location Services') + ' → ' + k('Safari Websites') + '.',
+        'Turn on ' + k('Precise Location') + '.', 'Scan the QR again.'],
+      off: [k('Settings') + ' → ' + k('Privacy & Security') + ' → ' + k('Location Services') + ': turn it on.',
+        'Stand near the reception door.', 'Scan the QR again.']
+    } : {
+      blocked: ['If Chrome shows a message with ' + k('Settings') + ', tap it. (Or: phone ' + k('Settings') + ' → ' + k('Apps') + ' → ' + k('Chrome') + '.)',
+        'Tap ' + k('Permissions') + ' → ' + k('Location') + '.',
+        'Choose ' + k('Allow only while using the app') + ' and turn on ' + k('Use precise location') + '.',
+        'Back in Chrome: tap the icon left of the address → ' + k('Permissions') + ' → ' + k('Location') + ' → ' + k('Allow') + '.',
+        'Scan the QR again.'],
+      precise: ['Phone ' + k('Settings') + ' → ' + k('Apps') + ' → ' + k('Chrome') + ' → ' + k('Permissions') + ' → ' + k('Location') + '.',
+        'Turn on ' + k('Use precise location') + '.', 'Scan the QR again.'],
+      off: ['Pull down from the top of the screen and tap ' + k('Location') + ' to turn it on.',
+        'Stand near the reception door.', 'Scan the QR again.']
+    },
+    err: {
+      noqr: 'Scan the QR code on the reception screen.',
+      expired: 'This QR code is old. Scan the code on the reception screen again.',
+      bad: 'This QR code is not valid. Scan the code on the reception screen.',
+      'too-far': 'You are not at the hotel.', away: 'About {d} away.',
+      inactive: 'You are not on the staff list. Ask reception.',
+      'wrong-code': 'Wrong or old code. Ask reception for a new code.',
+      blocked: 'Too many wrong codes. Wait 10 minutes.',
+      net: 'No internet, or a problem. Scan the QR again.'
+    }
+  },
+  hi: {
+    checking: 'जाँच हो रही है…', finding: 'आपकी लोकेशन ढूँढ रहे हैं…', marking: 'हाज़िरी लग रही है…', telling: 'रिसेप्शन को बता रहे हैं…', settingUp: 'फ़ोन सेट हो रहा है…',
+    present: 'हाज़िर ✓', half: 'आधा दिन ✓', already: 'आज की हाज़िरी पहले से लगी है', told: 'रिसेप्शन आपकी हाज़िरी लगाएगा',
+    showScreen: 'यह स्क्रीन रिसेप्शन पर दिखाएँ।', setupDone: 'फ़ोन सेट हो गया ✓',
+    setupTitle: 'यह फ़ोन सेट करें', setupSub: 'रिसेप्शन से अपना 6 अंकों का कोड लें।', setupBtn: 'सेट करें',
+    askTitle: 'फ़ोन आपकी लोकेशन की अनुमति माँगेगा',
+    askSteps: IOS ? [k('Allow') + ' दबाएँ।'] : [k('Precise') + ' चुनें।', k('While using the app') + ' दबाएँ।'],
+    askNote: IOS ? '"Don\'t Allow" न दबाएँ।' : '"Only this time" या "Don\'t allow" न दबाएँ। यह सिर्फ़ एक बार पूछा जाता है।',
+    privacy: 'लोकेशन सिर्फ़ स्कैन के समय देखी जाती है, कभी ट्रैक नहीं होती।', ok: 'ठीक है',
+    tellBtn: 'रिसेप्शन को बताएँ कि मैं यहाँ हूँ', tellSub: 'रिसेप्शन आपकी हाज़िरी लगा देगा।',
+    fix: 'ठीक कैसे करें (1 मिनट)', retry: 'ठीक कर दिया, फिर से कोशिश करें',
+    title: { blocked: 'लोकेशन ब्लॉक है', precise: 'लोकेशन सटीक नहीं है', off: 'आपकी लोकेशन नहीं मिली' },
+    steps: IOS ? {
+      blocked: [k('Settings') + ' खोलें → ' + k('Privacy & Security') + ' → ' + k('Location Services') + ' चालू करें।',
+        'उसी सूची में ' + k('Safari Websites') + ' → ' + k('While Using the App') + ' चुनें, और ' + k('Precise Location') + ' चालू करें।',
+        'Safari में पते के बाईं ओर ' + k('aA') + ' दबाएँ → ' + k('Website Settings') + ' → ' + k('Location') + ' → ' + k('Allow') + '।',
+        'QR फिर से स्कैन करें।'],
+      precise: [k('Settings') + ' → ' + k('Privacy & Security') + ' → ' + k('Location Services') + ' → ' + k('Safari Websites') + '।',
+        k('Precise Location') + ' चालू करें।', 'QR फिर से स्कैन करें।'],
+      off: [k('Settings') + ' → ' + k('Privacy & Security') + ' → ' + k('Location Services') + ' चालू करें।',
+        'रिसेप्शन के दरवाज़े के पास खड़े हों।', 'QR फिर से स्कैन करें।']
+    } : {
+      blocked: ['Chrome में ' + k('Settings') + ' वाला संदेश दिखे तो उसे दबाएँ। (या: फ़ोन की ' + k('Settings') + ' → ' + k('Apps') + ' → ' + k('Chrome') + ')',
+        k('Permissions') + ' → ' + k('Location') + ' दबाएँ।',
+        k('Allow only while using the app') + ' चुनें और ' + k('Use precise location') + ' चालू करें।',
+        'Chrome में वापस आएँ: पते के बाईं ओर का निशान दबाएँ → ' + k('Permissions') + ' → ' + k('Location') + ' → ' + k('Allow') + '।',
+        'QR फिर से स्कैन करें।'],
+      precise: ['फ़ोन की ' + k('Settings') + ' → ' + k('Apps') + ' → ' + k('Chrome') + ' → ' + k('Permissions') + ' → ' + k('Location') + '।',
+        k('Use precise location') + ' चालू करें।', 'QR फिर से स्कैन करें।'],
+      off: ['स्क्रीन को ऊपर से नीचे खींचें और ' + k('Location') + ' चालू करें।',
+        'रिसेप्शन के दरवाज़े के पास खड़े हों।', 'QR फिर से स्कैन करें।']
+    },
+    err: {
+      noqr: 'रिसेप्शन की स्क्रीन पर दिख रहा QR कोड स्कैन करें।',
+      expired: 'यह QR पुराना हो गया। रिसेप्शन की स्क्रीन वाला QR फिर से स्कैन करें।',
+      bad: 'यह QR सही नहीं है। रिसेप्शन की स्क्रीन वाला QR स्कैन करें।',
+      'too-far': 'आप होटल पर नहीं हैं।', away: 'लगभग {d} दूर।',
+      inactive: 'आपका नाम स्टाफ़ सूची में नहीं है। रिसेप्शन से पूछें।',
+      'wrong-code': 'कोड गलत या पुराना है। रिसेप्शन से नया कोड लें।',
+      blocked: 'बहुत बार गलत कोड डाला गया। 10 मिनट रुकें।',
+      net: 'इंटरनेट नहीं है या कोई दिक्कत है। QR फिर से स्कैन करें।'
+    }
+  }
+};
+
+// ---------- language + drawing ----------
+function store(name, v) { try { if (v === undefined) return localStorage.getItem(name); if (v === null) localStorage.removeItem(name); else localStorage.setItem(name, v); } catch (e) { return null; } }
+var LANG = store(LANG_NAME) || (/^(hi|ne|or|mr)/.test(navigator.language || '') ? 'hi' : 'en');
+var VIEW = function () {};
+function L() { return TXT[LANG]; }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function draw(fn) { VIEW = fn; document.documentElement.lang = LANG; document.getElementById('app').innerHTML = fn(L()); markLang(); }
+function markLang() { ['en', 'hi'].forEach(function (x) { document.getElementById('l-' + x).className = x === LANG ? 'on' : ''; }); }
+function setLang(x) { LANG = x; store(LANG_NAME, x); var keep = document.getElementById('code'); var v = keep && keep.value; draw(VIEW); if (v && document.getElementById('code')) document.getElementById('code').value = v; }
+
+function busy(key) { draw(function (t) { return '<div class="icon">⏳</div><div class="sub">' + t[key] + '</div>'; }); }
+// ok: true/false; title(t) and sub(t) return text for the current language
+function result(ok, title, sub) {
+  draw(function (t) {
+    return '<div class="icon">' + (ok ? '✅' : '❌') + '</div><h2 class="' + (ok ? 'ok' : 'bad') + '">' + esc(title(t)) + '</h2>' +
+      '<div class="sub">' + esc(sub ? sub(t) : '') + '</div>';
+  });
+}
+function errResult(r) {
+  result(false, function (t) { return t.err[r.reason] || r.msg || t.err.net; },
+    function (t) { return r.reason === 'too-far' && r.dist ? t.err.away.replace('{d}', r.dist > 2000 ? Math.round(r.dist / 1000) + ' km' : r.dist + ' m') : (r.name || ''); });
+}
+function who(r) { return r.name + ' · ' + r.date + ' · ' + r.time; }
+
+function showSetup(errKey) {
+  draw(function (t) {
+    return '<div class="icon">📱</div><h2>' + t.setupTitle + '</h2><div class="sub">' + t.setupSub + '</div>' +
+      '<input id="code" inputmode="numeric" maxlength="6" autocomplete="off">' +
+      '<button class="main" onclick="doSetup()">' + t.setupBtn + '</button>' +
+      (errKey ? '<div class="sub bad">' + (t.err[errKey] || t.err.net) + '</div>' : '');
+  });
+}
+function showAsk() {
+  draw(function (t) {
+    return '<div class="icon">📍</div><h2>' + t.askTitle + '</h2><ol>' + t.askSteps.map(function (s) { return '<li>' + s + '</li>'; }).join('') + '</ol>' +
+      '<div class="sub">' + t.askNote + '</div><button class="main" onclick="getPos()">' + t.ok + '</button>' +
+      '<div class="sub" style="margin-top:16px;font-size:14px">' + t.privacy + '</div>';
+  });
+}
+function help(kind) {
+  WHY = kind;
+  draw(function (t) {
+    return '<div class="icon">📍</div><h2 class="bad">' + t.title[kind] + '</h2>' +
+      '<button class="main" onclick="askReception()">' + t.tellBtn + '</button><div class="sub">' + t.tellSub + '</div>' +
+      '<details><summary>' + t.fix + '</summary><ol>' + t.steps[kind].map(function (s) { return '<li>' + s + '</li>'; }).join('') + '</ol>' +
+      '<button class="plain" onclick="getPos()">' + t.retry + '</button></details>';
+  });
+}
+
+// ---------- flow ----------
 // Plain POST, no Google login or cookies: text/plain avoids a CORS preflight; Apps Script answers with CORS open.
 function call(body, ok) {
   fetch(API, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain;charset=utf-8' } })
-    .then(function (r) { return r.json(); }).then(ok).catch(failed);
+    .then(function (r) { return r.json(); }).then(ok).catch(function () { errResult({ reason: 'net' }); });
 }
-var KEY_NAME = 'parkview-attendance-key', WHY = '';
-var STEPS = {
-  blocked: [
-    'If Chrome shows a message with <b class="k">Settings</b>, tap it. (Or: phone Settings → Apps → Chrome.)',
-    'Tap <b class="k">Permissions</b> → <b class="k">Location</b>.',
-    'Choose <b class="k">Allow only while using the app</b> and turn ON <b class="k">Use precise location</b>.',
-    'Back in Chrome: tap the icon left of the web address → <b class="k">Permissions</b> → <b class="k">Location</b> → <b class="k">Allow</b>.',
-    'Scan the QR again.'],
-  precise: [
-    'Phone Settings → Apps → Chrome → <b class="k">Permissions</b> → <b class="k">Location</b>.',
-    'Turn ON <b class="k">Use precise location</b>.',
-    'Scan the QR again.'],
-  off: [
-    'Pull down from the top of the screen and tap <b class="k">Location</b> to turn it on.',
-    'Stand near the reception door.',
-    'Scan the QR again.']
-};
-var TITLES = { blocked: 'Location is blocked on this phone', precise: 'Location is not exact', off: 'Could not find your location' };
-function el(id) { return document.getElementById(id); }
-function getKey() { try { return localStorage.getItem(KEY_NAME); } catch (e) { return null; } }
-function setKey(k) { try { if (k) localStorage.setItem(KEY_NAME, k); else localStorage.removeItem(KEY_NAME); } catch (e) {} }
-function show(id) { ['busy', 'result', 'setup', 'ask', 'help'].forEach(function (x) { el(x).className = x === id ? '' : 'hide'; }); }
-function busy(t) { el('busyText').textContent = t; show('busy'); }
-function result(ok, text, sub) {
-  el('icon').textContent = ok ? '✅' : '❌';
-  el('text').textContent = text; el('text').className = 'msg ' + (ok ? 'ok' : 'bad');
-  el('sub').textContent = sub || ''; show('result');
-}
-function failed(err) { result(false, 'No internet or a problem. Scan the QR again.', String(err && err.message || err || '')); }
-function help(kind) {
-  WHY = kind;
-  el('helpTitle').textContent = TITLES[kind];
-  el('steps').innerHTML = STEPS[kind].map(function (s) { return '<li>' + s + '</li>'; }).join('');
-  show('help');
-}
-
 function start() {
-  if (!T) { result(false, 'Scan the QR code on the reception screen.', ''); return; }
-  if (!getKey()) { show('setup'); return; }
+  if (!T) { errResult({ reason: 'noqr' }); return; }
+  if (!store(KEY_NAME)) { showSetup(); return; }
   if (!navigator.geolocation) { help('blocked'); return; }
   // Ask the browser what it will do, so first-timers get the simple explanation before the phone's popup.
   if (navigator.permissions && navigator.permissions.query) {
     navigator.permissions.query({ name: 'geolocation' }).then(function (p) {
       if (p.state === 'granted') getPos();
       else if (p.state === 'denied') help('blocked');
-      else show('ask');
-    }).catch(function () { show('ask'); });
-  } else show('ask');
+      else showAsk();
+    }).catch(showAsk);
+  } else showAsk();
 }
-
 function getPos() {
-  busy('Finding your location…');
+  busy('finding');
   navigator.geolocation.getCurrentPosition(function (p) {
     send({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy });
-  }, function (e) {
-    help(e.code === 1 ? 'blocked' : 'off');
-  }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+  }, function (e) { help(e.code === 1 ? 'blocked' : 'off'); }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
 }
-
 function send(loc) {
-  busy('Marking…');
-  call({ action: 'scan', t: T, k: getKey(), lat: loc.lat, lng: loc.lng, acc: loc.acc }, function (r) {
-    if (r.setup) { if (r.reset) setKey(null); show('setup'); return; }
+  busy('marking');
+  call({ action: 'scan', t: T, k: store(KEY_NAME), lat: loc.lat, lng: loc.lng, acc: loc.acc }, function (r) {
+    if (r.setup) { if (r.reset) store(KEY_NAME, null); showSetup(); return; }
     if (!r.ok && r.reason === 'not-precise') { help('precise'); return; }
     if (!r.ok && r.reason === 'no-location') { help('off'); return; }
-    if (!r.ok) { result(false, r.msg, r.name ? r.name : ''); return; }
-    var word = r.status === 'H' ? 'Half day' : 'Present';
-    if (r.already) result(true, 'Already marked today', r.name + ' · ' + r.date + ' · ' + r.time);
-    else result(true, word + ' ✓', r.name + ' · ' + r.date + ' · ' + r.time);
+    if (!r.ok) { errResult(r); return; }
+    result(true, function (t) { return r.already ? t.already : (r.status === 'H' ? t.half : t.present); }, function () { return who(r); });
   });
 }
-
 function askReception() {
-  busy('Telling reception…');
-  call({ action: 'help', t: T, k: getKey(), why: WHY }, function (r) {
-    if (r.setup) { show('setup'); return; }
-    if (!r.ok) { result(false, r.msg, ''); return; }
-    if (r.already) { result(true, 'Already marked today', r.name + ' · ' + r.date + ' · ' + r.time); return; }
-    result(true, 'Reception will confirm you', r.name + ' · ' + r.date + ' · ' + r.time + '. Show this screen at reception.');
+  busy('telling');
+  call({ action: 'help', t: T, k: store(KEY_NAME), why: WHY }, function (r) {
+    if (r.setup) { showSetup(); return; }
+    if (!r.ok) { errResult(r); return; }
+    if (r.already) { result(true, function (t) { return t.already; }, function () { return who(r); }); return; }
+    result(true, function (t) { return t.told; }, function (t) { return who(r) + '. ' + t.showScreen; });
   });
 }
-
 function doSetup() {
-  el('setupErr').textContent = '';
-  busy('Setting up…');
-  call({ action: 'setup', code: el('code').value, t: T }, function (r) {
-    if (!r.ok) { show('setup'); el('setupErr').textContent = r.msg; return; }
-    setKey(r.key);
-    busy('Phone set up for ' + r.name + ' ✓');
+  var code = document.getElementById('code').value;
+  busy('settingUp');
+  call({ action: 'setup', code: code, t: T }, function (r) {
+    if (!r.ok) { showSetup(r.reason || 'net'); return; }
+    store(KEY_NAME, r.key);
     start();
   });
 }
+markLang();
+busy('checking');
 start();
 </script>
 </body>
