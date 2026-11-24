@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>Park View Approval</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; margin: 0; background: #f4f5f7; color: #1f2328; }
+  header { padding: 14px 16px; font-weight: 600; color: #57606a; font-size: 15px; }
+  main { max-width: 440px; margin: 0 auto; padding: 8px 16px 32px; text-align: center; }
+  h2 { font-size: 26px; margin: 24px 0 8px; }
+  ul { list-style: none; padding: 0; font-size: 20px; line-height: 1.6; margin: 12px 0; }
+  .sub { font-size: 17px; color: #57606a; margin: 6px 0; }
+  .msg { font-size: 21px; margin-top: 28px; }
+  button { display: block; width: 100%; font-size: 20px; padding: 16px; margin-top: 18px; border: 0; border-radius: 12px; color: #fff; }
+  .Approve { background: #1a7f37; } .Reject { background: #cf222e; }
+  button:disabled { opacity: .6; }
+</style>
+</head>
+<body>
+<header>Park View Attendance</header>
+<main id="app"><p class="msg">Loading…</p></main>
+<script>
+// Opened from the approval email. The request id and token sit after "#", so they never reach GitHub's servers.
+var API = 'https://script.google.com/macros/s/AKfycbx9iljOgyaOLm3TC9Ibe545IgnOJErAWm4MchT8iJMXn5W36yQPWT-5VWvMLjBpJpRzNA/exec';
+var q = {};
+location.hash.slice(1).split('&').forEach(function (kv) {
+  var i = kv.indexOf('=');
+  if (i > 0) q[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1));
+});
+var D = q.d === 'approve' ? 'approve' : 'reject';
+var app = document.getElementById('app');
+
+function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; }
+function say(text) { app.innerHTML = ''; app.appendChild(el('p', 'msg', text)); }
+function post(body) {
+  return fetch(API, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain;charset=utf-8' } })
+    .then(function (r) { return r.json(); });
+}
+
+if (!q.id || !q.tok) say('This link is not complete. Open it again from the email.');
+else post({ action: 'approval', id: q.id, tok: q.tok, d: D }).then(function (info) {
+  if (!info.ok) { say(info.msg || 'This link is not valid.'); return; }
+  app.innerHTML = '';
+  app.appendChild(el('h2', '', info.name));
+  var ul = el('ul');
+  (info.changes || []).forEach(function (c) { ul.appendChild(el('li', '', c)); });
+  app.appendChild(ul);
+  app.appendChild(el('p', 'sub', 'Nothing changes until you tap the button.'));
+  var b = el('button', info.action, 'Confirm: ' + info.action);
+  b.onclick = function () {
+    b.disabled = true; b.textContent = 'Saving…';
+    post({ action: 'decide', id: q.id, tok: q.tok, d: D }).then(function (r) { say(r.msg || 'Done.'); })
+      .catch(function () { b.disabled = false; b.textContent = 'Try again'; });
+  };
+  app.appendChild(b);
+}).catch(function () { say('No internet, or a problem. Open the link again.'); });
+</script>
+</body>
+</html>
