@@ -298,6 +298,7 @@ function drawMine(r, note) {
       '<div class="chips">' + chips + '</div>' +
       (rows ? '<div class="days">' + rows + '</div>' : '<div class="sub">' + t.noDays + '</div>') +
       '<button class="plain" onclick="showMine(MINE)">' + t.refresh + '</button>' +
+      (store('parkview-manager-key') ? '<button class="plain" style="margin-top:12px;color:#174ea6" onclick="location.href=\'manager/\'">Manager →</button>' : '') +
       (standalone ? '' : '<div class="tip">' + t.tip + '</div>');
   });
 }

@@ -126,8 +126,9 @@ function draw(tab, r, note) {
   else PENDING = (r.items || []).length;
   show(tabs() + (note ? '<p class="sub">' + esc(note) + '</p>' : '') + (tab === 'today' ? today(r) : pending(r)) +
     '<button class="plain" onclick="open_(TAB)">Refresh</button>' +
+    (store('parkview-attendance-key') ? '<button class="plain" style="margin-top:12px" onclick="location.href=\'../\'">← My attendance</button>' : '') +
     (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches ? '' :
-      '<div class="tip">Tip: Chrome menu ⋮ → Add to Home screen gives you a "PV Manager" icon.</div>'));
+      (store('parkview-attendance-key') ? '' : '<div class="tip">Tip: Chrome menu ⋮ → Add to Home screen gives you a "PV Manager" icon.</div>')));
 }
 function today(r) {
   var people = (r.people || []).slice(), count = { in: 0, miss: 0 };
