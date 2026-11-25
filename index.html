@@ -47,8 +47,8 @@ var TXT = {
     showScreen: 'Show this screen at reception.', setupDone: 'Phone set up ✓',
     setupTitle: 'Set up this phone', setupSub: 'Ask reception for your 6-digit code.', setupBtn: 'Set up',
     askTitle: 'Your phone will ask for your location',
-    askSteps: IOS ? ['Tap ' + k('Allow') + '.'] : ['Choose ' + k('Precise') + '.', 'Tap ' + k('While using the app') + '.'],
-    askNote: IOS ? 'Do not tap "Don\'t Allow".' : 'Do not tap "Only this time" or "Don\'t allow". You are asked only once.',
+    askSteps: IOS ? ['Tap ' + k('Allow') + '.'] : ['If a box ' + k('Location Accuracy') + ' appears, tap ' + k('Turn on') + '.', 'Choose ' + k('Precise') + '.', 'Tap ' + k('While using the app') + '.'],
+    askNote: IOS ? 'Do not tap "Don\'t Allow".' : 'Do not tap "No, thanks", "Only this time" or "Don\'t allow". You are asked only once.',
     privacy: 'Location is checked only when you scan. It is never tracked.', ok: 'OK',
     tellBtn: 'Tell reception I am here', tellSub: 'Reception will mark you present.',
     fix: 'How to fix it (1 minute)', retry: 'I fixed it, try again',
@@ -92,8 +92,8 @@ var TXT = {
     showScreen: 'यह स्क्रीन रिसेप्शन पर दिखाएँ।', setupDone: 'फ़ोन सेट हो गया ✓',
     setupTitle: 'यह फ़ोन सेट करें', setupSub: 'रिसेप्शन से अपना 6 अंकों का कोड लें।', setupBtn: 'सेट करें',
     askTitle: 'फ़ोन आपकी लोकेशन की अनुमति माँगेगा',
-    askSteps: IOS ? [k('Allow') + ' दबाएँ।'] : [k('Precise') + ' चुनें।', k('While using the app') + ' दबाएँ।'],
-    askNote: IOS ? '"Don\'t Allow" न दबाएँ।' : '"Only this time" या "Don\'t allow" न दबाएँ। यह सिर्फ़ एक बार पूछा जाता है।',
+    askSteps: IOS ? [k('Allow') + ' दबाएँ।'] : ['अगर ' + k('Location Accuracy') + ' वाला बॉक्स आए, तो ' + k('Turn on') + ' दबाएँ।', k('Precise') + ' चुनें।', k('While using the app') + ' दबाएँ।'],
+    askNote: IOS ? '"Don\'t Allow" न दबाएँ।' : '"No, thanks", "Only this time" या "Don\'t allow" न दबाएँ। यह सिर्फ़ एक बार पूछा जाता है।',
     privacy: 'लोकेशन सिर्फ़ स्कैन के समय देखी जाती है, कभी ट्रैक नहीं होती।', ok: 'ठीक है',
     tellBtn: 'रिसेप्शन को बताएँ कि मैं यहाँ हूँ', tellSub: 'रिसेप्शन आपकी हाज़िरी लगा देगा।',
     fix: 'ठीक कैसे करें (1 मिनट)', retry: 'ठीक कर दिया, फिर से कोशिश करें',
@@ -157,13 +157,17 @@ function errResult(r) {
 }
 function who(r) { return r.name + ' · ' + r.date + ' · ' + r.time; }
 
-function showSetup(errKey) {
+// A form, so the keyboard's Enter/Go key also sets up; 6 digits typed = set up straight away (the keyboard can hide the button).
+function showSetup(errKey, keep) {
+  SETTING = false;
   draw(function (t) {
     return '<div class="icon">📱</div><h2>' + t.setupTitle + '</h2><div class="sub">' + t.setupSub + '</div>' +
-      '<input id="code" inputmode="numeric" maxlength="6" autocomplete="off">' +
-      '<button class="main" onclick="doSetup()">' + t.setupBtn + '</button>' +
+      '<form onsubmit="doSetup(); return false;"><input id="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" enterkeyhint="go"' +
+      ' oninput="if (this.value.replace(/\\D/g, \'\').length === 6) doSetup()">' +
+      '<button class="main" type="submit">' + t.setupBtn + '</button></form>' +
       (errKey ? '<div class="sub bad">' + (t.err[errKey] || t.err.net) + '</div>' : '');
   });
+  if (keep) document.getElementById('code').value = keep;
 }
 function showAsk() {
   draw(function (t) {
@@ -226,12 +230,16 @@ function askReception() {
     result(true, function (t) { return t.told; }, function (t) { return who(r) + '. ' + t.showScreen; });
   });
 }
+var SETTING = false;
 function doSetup() {
+  if (SETTING) return;
+  SETTING = true;
   var code = document.getElementById('code').value;
   busy('settingUp');
   call({ action: 'setup', code: code, t: T }, function (r) {
-    if (!r.ok) { showSetup(r.reason || 'net'); return; }
+    if (!r.ok) { showSetup(r.reason || 'net', r.reason === 'expired' ? code : ''); return; }
     store(KEY_NAME, r.key);
+    if (r.t) T = r.t;            // fresh QR from the server: the one scanned may be minutes old by now
     start();
   });
 }
