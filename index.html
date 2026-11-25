@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Park View Attendance</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#263238">
+<link rel="icon" href="icon-192.png">
 <style>
   * { box-sizing: border-box; }
   body { font-family: -apple-system, "Segoe UI", Roboto, "Noto Sans Devanagari", Arial, sans-serif; margin: 0; background: #f4f5f7; color: #1f2328; }
@@ -25,6 +28,22 @@
   summary { font-size: 17px; color: #0969da; cursor: pointer; }
   input { font-size: 32px; width: 220px; text-align: center; letter-spacing: 8px; padding: 10px; margin-top: 18px; border: 2px solid #d0d7de; border-radius: 12px; }
   .hide { display: none; }
+  /* My attendance */
+  .tabs { display: flex; gap: 8px; margin: 10px 0 6px; }
+  .tabs button { flex: 1; font-size: 16px; padding: 10px; border: 1px solid #d0d7de; border-radius: 10px; background: #fff; color: #1f2328; }
+  .tabs button.on { background: #1f2328; color: #fff; border-color: #1f2328; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 10px 0; }
+  .chip { font-size: 15px; padding: 4px 10px; border-radius: 12px; }
+  .days { text-align: left; background: #fff; border: 1px solid #d0d7de; border-radius: 12px; overflow: hidden; }
+  .day { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-top: 1px solid #eaeef2; font-size: 17px; }
+  .day:first-child { border-top: 0; }
+  .day.now { background: #fff8c5; }
+  .day .dn { width: 64px; color: #57606a; }
+  .day .tm { margin-left: auto; color: #57606a; font-variant-numeric: tabular-nums; }
+  .badge { display: inline-block; min-width: 30px; text-align: center; font-weight: 700; padding: 3px 8px; border-radius: 8px; }
+  .s-P { background: #d9ead3; color: #137333; } .s-A { background: #f4cccc; color: #a50e0e; } .s-L { background: #cfe2f3; color: #174ea6; }
+  .s-S { background: #fce5cd; color: #b45f06; } .s-H { background: #fff2cc; color: #7f6000; } .s-O { background: #e8eaed; color: #5f6368; }
+  .tip { font-size: 14px; color: #57606a; margin-top: 18px; }
 </style>
 </head>
 <body>
@@ -84,7 +103,14 @@ var TXT = {
       closed: 'Phone setup is closed. Ask reception for a code.',
       'on-leave': 'Today is marked Leave for you. If you are working today, tell reception.',
       net: 'No internet, or a problem. Scan the QR again.'
-    }
+    },
+    mineTitle: 'My attendance', thisMonth: 'This month', lastMonth: 'Last month', refresh: 'Refresh', loading: 'Loading…',
+    notSetUp: 'This phone is not set up yet. Ask reception for a code, then scan the QR on the reception screen.',
+    noDays: 'Nothing marked in this month.', offline: 'No internet: showing what was saved on this phone.',
+    st: { P: 'Present', A: 'Absent', L: 'Leave', S: 'Sick', H: 'Half day', O: 'Off' },
+    wd: { Su: 'Sun', Mo: 'Mon', Tu: 'Tue', We: 'Wed', Th: 'Thu', Fr: 'Fri', Sa: 'Sat' },
+    months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+    tip: 'Tip: Chrome menu ⋮ → ' + k('Add to Home screen') + ' gives you a Park View icon.'
   },
   hi: {
     checking: 'जाँच हो रही है…', finding: 'आपकी लोकेशन ढूँढ रहे हैं…', marking: 'हाज़िरी लग रही है…', telling: 'रिसेप्शन को बता रहे हैं…', settingUp: 'फ़ोन सेट हो रहा है…',
@@ -129,7 +155,14 @@ var TXT = {
       closed: 'फ़ोन सेटअप अभी बंद है। रिसेप्शन से कोड लें।',
       'on-leave': 'आज आपकी छुट्टी लगी है। अगर आप आज काम पर हैं, तो रिसेप्शन को बताएँ।',
       net: 'इंटरनेट नहीं है या कोई दिक्कत है। QR फिर से स्कैन करें।'
-    }
+    },
+    mineTitle: 'मेरी हाज़िरी', thisMonth: 'इस महीने', lastMonth: 'पिछले महीने', refresh: 'ताज़ा करें', loading: 'लोड हो रहा है…',
+    notSetUp: 'यह फ़ोन अभी सेट नहीं है। रिसेप्शन से कोड लें, फिर रिसेप्शन की स्क्रीन वाला QR स्कैन करें।',
+    noDays: 'इस महीने में कुछ दर्ज नहीं है।', offline: 'इंटरनेट नहीं है: फ़ोन में सेव की गई जानकारी दिख रही है।',
+    st: { P: 'हाज़िर', A: 'ग़ैरहाज़िर', L: 'छुट्टी', S: 'बीमार', H: 'आधा दिन', O: 'ऑफ़' },
+    wd: { Su: 'रवि', Mo: 'सोम', Tu: 'मंगल', We: 'बुध', Th: 'गुरु', Fr: 'शुक्र', Sa: 'शनि' },
+    months: ['जनवरी', 'फ़रवरी', 'मार्च', 'अप्रैल', 'मई', 'जून', 'जुलाई', 'अगस्त', 'सितंबर', 'अक्टूबर', 'नवंबर', 'दिसंबर'],
+    tip: 'सुझाव: Chrome मेन्यू ⋮ → ' + k('Add to Home screen') + ' दबाने से Park View का आइकन मिलेगा।'
   }
 };
 
@@ -193,7 +226,7 @@ function call(body, ok) {
     .then(function (r) { return r.json(); }).then(ok).catch(function () { errResult({ reason: 'net' }); });
 }
 function start() {
-  if (!T) { errResult({ reason: 'noqr' }); return; }
+  if (!T) { if (store(KEY_NAME)) showMine(''); else result(false, function (t) { return t.notSetUp; }); return; }
   if (!store(KEY_NAME)) { showSetup(); return; }
   if (!navigator.geolocation) { help('blocked'); return; }
   // Ask the browser what it will do, so first-timers get the simple explanation before the phone's popup.
@@ -243,6 +276,46 @@ function doSetup() {
     start();
   });
 }
+// ---------- My attendance (app icon / page opened without a QR) ----------
+var MINE = '';
+function monthLabel(t, tab) { var p = String(tab || '').split('-'); var i = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].indexOf(p[0]); return i < 0 ? tab : t.months[i] + ' ' + p[1]; }
+function drawMine(r, note) {
+  draw(function (t) {
+    var shown = r.days.filter(function (x) { return r.today ? (x.d <= r.today || x.s) : true; }).reverse();
+    var list = shown.filter(function (x) { return x.s || x.t || x.d === r.today; });
+    var chips = ['P', 'H', 'A', 'L', 'S', 'O'].filter(function (s) { return r.counts[s]; })
+      .map(function (s) { return '<span class="chip s-' + s + '">' + t.st[s] + ' ' + r.counts[s] + '</span>'; }).join('');
+    var rows = list.map(function (x) {
+      return '<div class="day' + (x.d === r.today ? ' now' : '') + '"><span class="dn">' + x.d + ' ' + (t.wd[x.wd] || x.wd) + '</span>' +
+        (x.s ? '<span class="badge s-' + esc(x.s) + '">' + esc(x.s) + '</span> ' + esc(t.st[x.s] || '') : '<span class="badge">–</span>') +
+        '<span class="tm">' + esc(x.t) + '</span></div>';
+    }).join('');
+    var standalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+    return '<h2 style="margin-top:8px">' + t.mineTitle + '</h2><div class="sub">' + esc(r.name) + ' · ' + esc(monthLabel(t, r.month)) + '</div>' +
+      '<div class="tabs"><button class="' + (MINE ? '' : 'on') + '" onclick="showMine(\'\')">' + t.thisMonth + '</button>' +
+      '<button class="' + (MINE ? 'on' : '') + '" onclick="showMine(\'prev\')">' + t.lastMonth + '</button></div>' +
+      (note ? '<div class="sub">' + t[note] + '</div>' : '') +
+      '<div class="chips">' + chips + '</div>' +
+      (rows ? '<div class="days">' + rows + '</div>' : '<div class="sub">' + t.noDays + '</div>') +
+      '<button class="plain" onclick="showMine(MINE)">' + t.refresh + '</button>' +
+      (standalone ? '' : '<div class="tip">' + t.tip + '</div>');
+  });
+}
+function showMine(which) {
+  MINE = which;
+  var cacheName = 'parkview-mine' + (which ? '-' + which : ''), cached = null;
+  try { cached = JSON.parse(store(cacheName) || 'null'); } catch (e) {}
+  if (cached) drawMine(cached, 'loading'); else busy('loading');
+  fetch(API, { method: 'POST', body: JSON.stringify({ action: 'mine', k: store(KEY_NAME), m: which }), headers: { 'Content-Type': 'text/plain;charset=utf-8' } })
+    .then(function (x) { return x.json(); }).then(function (r) {
+      if (MINE !== which) return;                         // the other month was tapped meanwhile
+      if (r.setup) { result(false, function (t) { return t.notSetUp; }); return; }
+      if (!r.ok) { errResult(r); return; }
+      store(cacheName, JSON.stringify(r));
+      drawMine(r);
+    }).catch(function () { if (cached) drawMine(cached, 'offline'); else errResult({ reason: 'net' }); });
+}
+
 markLang();
 busy('checking');
 start();
