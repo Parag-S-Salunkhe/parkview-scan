@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>Park View Manager</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#174ea6">
+<link rel="icon" href="icon-192.png">
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; margin: 0; background: #f4f5f7; color: #1f2328; }
+  header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; }
+  header .brand { font-weight: 600; color: #174ea6; font-size: 15px; }
+  header .who { font-size: 14px; color: #57606a; }
+  main { max-width: 480px; margin: 0 auto; padding: 4px 16px 32px; }
+  h2 { font-size: 22px; margin: 6px 0 4px; }
+  .sub { font-size: 16px; color: #57606a; margin: 6px 0; }
+  .bad { color: #cf222e; } .ok { color: #1a7f37; }
+  .tabs { display: flex; gap: 8px; margin: 6px 0 12px; }
+  .tabs button { flex: 1; font-size: 16px; padding: 10px; border: 1px solid #d0d7de; border-radius: 10px; background: #fff; color: #1f2328; }
+  .tabs button.on { background: #174ea6; color: #fff; border-color: #174ea6; }
+  .card { background: #fff; border: 1px solid #d0d7de; border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-top: 1px solid #eaeef2; font-size: 17px; }
+  .row:first-child { border-top: 0; }
+  .row .tm { margin-left: auto; color: #57606a; font-variant-numeric: tabular-nums; }
+  .row.miss { background: #fff8f0; }
+  .badge { display: inline-block; min-width: 30px; text-align: center; font-weight: 700; padding: 3px 8px; border-radius: 8px; background: #eaeef2; color: #57606a; }
+  .s-P { background: #d9ead3; color: #137333; } .s-A { background: #f4cccc; color: #a50e0e; } .s-L { background: #cfe2f3; color: #174ea6; }
+  .s-S { background: #fce5cd; color: #b45f06; } .s-H { background: #fff2cc; color: #7f6000; } .s-O { background: #e8eaed; color: #5f6368; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
+  .chip { font-size: 15px; padding: 4px 10px; border-radius: 12px; background: #fff; border: 1px solid #d0d7de; }
+  .req { padding: 12px; }
+  .req b { font-size: 18px; }
+  .req ul { margin: 6px 0 10px; padding-left: 20px; font-size: 16px; line-height: 1.5; }
+  .req .when { font-size: 13px; color: #57606a; }
+  .btns { display: flex; gap: 8px; }
+  .btns button { flex: 1; font-size: 17px; padding: 12px; border: 0; border-radius: 10px; color: #fff; }
+  .yes { background: #1a7f37; } .no { background: #cf222e; }
+  .btns button.sure { outline: 3px solid #1f2328; }
+  button.main { display: block; width: 100%; font-size: 18px; padding: 14px; margin-top: 14px; border: 0; border-radius: 12px; background: #174ea6; color: #fff; }
+  button.plain { display: block; width: 100%; font-size: 16px; padding: 11px; margin-top: 4px; border: 1px solid #d0d7de; border-radius: 12px; background: #fff; color: #1f2328; }
+  input { font-size: 20px; width: 100%; padding: 12px; margin-top: 12px; border: 2px solid #d0d7de; border-radius: 12px; }
+  input.code { font-size: 30px; text-align: center; letter-spacing: 8px; }
+  .tip { font-size: 14px; color: #57606a; margin-top: 18px; text-align: center; }
+</style>
+</head>
+<body>
+<header><span class="brand">Park View Manager</span><span class="who" id="who"></span></header>
+<main id="app"><p class="sub">Loading…</p></main>
+<script>
+// Manager app for Parag and Sharad. Own key (separate from a staff key on the same phone). Data comes only from the
+// Apps Script API with that key; nothing is stored on GitHub.
+var API = 'https://script.google.com/macros/s/AKfycbx9iljOgyaOLm3TC9Ibe545IgnOJErAWm4MchT8iJMXn5W36yQPWT-5VWvMLjBpJpRzNA/exec';
+var KEY = 'parkview-manager-key', EMAIL = 'parkview-manager-email', TAB = 'today', PENDING = 0;
+function store(name, v) { try { if (v === undefined) return localStorage.getItem(name); if (v === null) localStorage.removeItem(name); else localStorage.setItem(name, v); } catch (e) { return null; } }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function $(id) { return document.getElementById(id); }
+function show(html) { $('app').innerHTML = html; }
+function post(body) {
+  return fetch(API, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain;charset=utf-8' } })
+    .then(function (r) { return r.json(); });
+}
+var NET = 'No internet, or a problem. Try again.';
+var ST = { P: 'Present', A: 'Absent', L: 'Leave', S: 'Sick', H: 'Half day', O: 'Off' };
+
+// ---------- setup (once per phone) ----------
+function showEmail(msg) {
+  show('<h2>Set up this phone</h2><div class="sub">For Parag and Sharad. Type your email: a 6-digit code is sent to it.</div>' +
+    '<form onsubmit="askCode(); return false;"><input id="email" type="email" autocomplete="email" enterkeyhint="send" placeholder="you@gmail.com">' +
+    '<button class="main" type="submit">Send me a code</button></form>' + (msg ? '<div class="sub bad">' + esc(msg) + '</div>' : ''));
+  if (store(EMAIL)) $('email').value = store(EMAIL);
+}
+function askCode() {
+  var email = $('email').value.trim();
+  if (!/@/.test(email)) { showEmail('Type your email.'); return; }
+  store(EMAIL, email);
+  show('<p class="sub">Sending…</p>');
+  post({ action: 'mgr-code', email: email }).then(function (r) { showCode(r.msg); }).catch(function () { showEmail(NET); });
+}
+function showCode(msg, bad) {
+  show('<h2>Type the code</h2><div class="sub">' + esc(msg || '') + '</div>' +
+    '<form onsubmit="doSetup(); return false;"><input id="code" class="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" enterkeyhint="go"' +
+    ' oninput="if (this.value.replace(/\\D/g, \'\').length === 6) doSetup()"><button class="main" type="submit">Set up</button></form>' +
+    (bad ? '<div class="sub bad">' + esc(bad) + '</div>' : '') +
+    '<button class="plain" style="margin-top:14px" onclick="showEmail()">Use another email / send again</button>');
+}
+var BUSY = false;
+function doSetup() {
+  if (BUSY) return; BUSY = true;
+  var code = $('code').value;
+  show('<p class="sub">Setting up…</p>');
+  post({ action: 'mgr-setup', email: store(EMAIL), code: code }).then(function (r) {
+    BUSY = false;
+    if (!r.ok) { showCode('', r.msg || 'Wrong or old code.'); return; }
+    store(KEY, r.key);
+    open_('today');
+  }).catch(function () { BUSY = false; showCode('', NET); });
+}
+
+// ---------- screens ----------
+function tabs() {
+  return '<div class="tabs"><button class="' + (TAB === 'today' ? 'on' : '') + '" onclick="open_(\'today\')">Today</button>' +
+    '<button class="' + (TAB === 'pending' ? 'on' : '') + '" onclick="open_(\'pending\')">Approvals' + (PENDING ? ' (' + PENDING + ')' : '') + '</button></div>';
+}
+function notManager(r) {
+  if (r && r.setup) { store(KEY, null); showEmail('This phone is not set up as a manager (or was reset). Set it up again.'); return true; }
+  return false;
+}
+function open_(tab) {
+  TAB = tab;
+  var cache = null; try { cache = JSON.parse(store('parkview-mgr-' + tab) || 'null'); } catch (e) {}
+  if (cache) draw(tab, cache, 'Updating…'); else show(tabs() + '<p class="sub">Loading…</p>');
+  post({ action: tab === 'today' ? 'mgr-today' : 'mgr-pending', mk: store(KEY) }).then(function (r) {
+    if (TAB !== tab) return;
+    if (notManager(r)) return;
+    if (!r.ok) { show(tabs() + '<p class="sub bad">' + esc(r.msg || NET) + '</p>'); return; }
+    store('parkview-mgr-' + tab, JSON.stringify(r));
+    draw(tab, r);
+  }).catch(function () { if (cache) draw(tab, cache, 'No internet: showing the last copy.'); else show(tabs() + '<p class="sub bad">' + NET + '</p>'); });
+}
+function draw(tab, r, note) {
+  if (tab === 'today') { PENDING = r.pending || 0; $('who').textContent = r.by || ''; }
+  else PENDING = (r.items || []).length;
+  show(tabs() + (note ? '<p class="sub">' + esc(note) + '</p>' : '') + (tab === 'today' ? today(r) : pending(r)) +
+    '<button class="plain" onclick="open_(TAB)">Refresh</button>' +
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches ? '' :
+      '<div class="tip">Tip: Chrome menu ⋮ → Add to Home screen gives you a "PV Manager" icon.</div>'));
+}
+function today(r) {
+  var people = (r.people || []).slice(), count = { in: 0, miss: 0 };
+  people.forEach(function (p) { if (p.s === 'P' || p.s === 'H') count.in++; else if (!p.s) count.miss++; });
+  people.sort(function (a, b) { return (a.s ? 1 : 0) - (b.s ? 1 : 0) || a.name.localeCompare(b.name); });   // not marked first
+  var rows = people.map(function (p) {
+    return '<div class="row' + (p.s ? '' : ' miss') + '"><span>' + esc(p.name) + '</span>' +
+      (p.s ? '<span class="badge s-' + esc(p.s) + '">' + esc(p.s) + '</span>' : '<span class="badge">–</span>') +
+      '<span class="tm">' + esc(p.t || (p.s ? ST[p.s] || '' : 'not yet')) + '</span></div>';
+  }).join('');
+  return '<h2>' + esc(r.date || 'Today') + '</h2><div class="chips"><span class="chip">In ' + count.in + '</span>' +
+    '<span class="chip">Not yet ' + count.miss + '</span>' + (r.pending ? '<span class="chip">To approve ' + r.pending + '</span>' : '') +
+    '</div><div class="card">' + (rows || '<div class="row">No active staff.</div>') + '</div>';
+}
+function pending(r) {
+  var items = r.items || [];
+  if (!items.length) return '<p class="sub">Nothing to approve.</p>';
+  return items.map(function (q, i) {
+    return '<div class="card req" id="q' + i + '"><b>' + esc(q.name) + '</b><ul>' +
+      q.changes.map(function (c) { return '<li>' + esc(c) + '</li>'; }).join('') + '</ul>' +
+      '<div class="when">Asked ' + esc(q.asked) + '</div><div class="btns" style="margin-top:10px">' +
+      '<button class="yes" onclick="decide(' + i + ', \'approve\', this)">Approve</button>' +
+      '<button class="no" onclick="decide(' + i + ', \'reject\', this)">Reject</button></div></div>';
+  }).join('');
+}
+// Two taps: the first arms the button ("Tap again"), so a stray touch changes nothing.
+function decide(i, d, btn) {
+  var items = (JSON.parse(store('parkview-mgr-pending') || '{}').items) || [], q = items[i];
+  if (!q) return;
+  if (!btn.classList.contains('sure')) {
+    btn.classList.add('sure'); btn.textContent = 'Tap again to ' + (d === 'approve' ? 'approve' : 'reject');
+    setTimeout(function () { if (btn.isConnected && btn.classList.contains('sure')) { btn.classList.remove('sure'); btn.textContent = d === 'approve' ? 'Approve' : 'Reject'; } }, 4000);
+    return;
+  }
+  var card = $('q' + i);
+  card.innerHTML = '<p class="sub">Saving…</p>';
+  post({ action: 'mgr-decide', mk: store(KEY), id: q.id, d: d }).then(function (r) {
+    if (notManager(r)) return;
+    card.innerHTML = '<p class="sub ' + (r.ok ? 'ok' : 'bad') + '"><b>' + esc(q.name) + '</b>: ' + esc(r.msg || (r.ok ? 'Done.' : NET)) + '</p>';
+    if (r.ok) { PENDING = Math.max(0, PENDING - 1); }
+  }).catch(function () { card.innerHTML = '<p class="sub bad">' + NET + ' Tap Refresh.</p>'; });
+}
+document.addEventListener('visibilitychange', function () { if (!document.hidden && store(KEY)) open_(TAB); });
+if (store(KEY)) open_('today'); else showEmail();
+</script>
+</body>
+</html>
