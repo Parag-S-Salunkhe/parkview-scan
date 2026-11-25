@@ -51,7 +51,7 @@
 <header><span class="brand">Park View Manager</span><span class="who" id="who"></span></header>
 <main id="app"><p class="sub">Loading…</p></main>
 <script>
-// Manager app for Parag and Sharad. Own key (separate from a staff key on the same phone). Data comes only from the
+// Manager app (approvers only). Own key (separate from a staff key on the same phone). Data comes only from the
 // Apps Script API with that key; nothing is stored on GitHub.
 var API = 'https://script.google.com/macros/s/AKfycbx9iljOgyaOLm3TC9Ibe545IgnOJErAWm4MchT8iJMXn5W36yQPWT-5VWvMLjBpJpRzNA/exec';
 var KEY = 'parkview-manager-key', EMAIL = 'parkview-manager-email', TAB = 'today', PENDING = 0;
@@ -68,8 +68,8 @@ var ST = { P: 'Present', A: 'Absent', L: 'Leave', S: 'Sick', H: 'Half day', O: '
 
 // ---------- setup (once per phone) ----------
 function showEmail(msg) {
-  show('<h2>Set up this phone</h2><div class="sub">For Parag and Sharad. Type your email: a 6-digit code is sent to it.</div>' +
-    '<form onsubmit="askCode(); return false;"><input id="email" type="email" autocomplete="email" enterkeyhint="send" placeholder="you@gmail.com">' +
+  show('<h2>Set up this phone</h2><div class="sub">For managers only. Type your email: a 6-digit code is sent to it.</div>' +
+    '<form onsubmit="askCode(); return false;"><input id="email" type="email" autocomplete="email" enterkeyhint="send" placeholder="your email">' +
     '<button class="main" type="submit">Send me a code</button></form>' + (msg ? '<div class="sub bad">' + esc(msg) + '</div>' : ''));
   if (store(EMAIL)) $('email').value = store(EMAIL);
 }
